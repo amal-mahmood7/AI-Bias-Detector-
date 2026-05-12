@@ -16,11 +16,11 @@ AI models are increasingly used to make decisions that affect people's lives —
 
 ## What It Does
 
-**Step 1 — Generate data**
-Creates a census-style dataset of 3,000 records based on demographic distributions from the UCI Adult Income Dataset. Groups have different feature distributions (education, occupation, hours) reflecting real documented labour market inequalities.
+**Step 1 — Load real data**
+Loads the UCI Adult Income Dataset — real US Census data containing 30,162 records. Each record includes demographic information (age, sex, race, education, occupation, hours worked) and whether the person earns above or below $50K/year.
 
 **Step 2 — Train a model**
-Trains a Decision Tree classifier to predict whether someone earns above $50K/year. The model never sees race or sex directly — it only uses education, occupation, hours and age.
+Trains a Decision Tree classifier to predict income. The model never sees race or sex directly — it only uses education, occupation, hours, age and capital gains.
 
 **Step 3 — Audit for bias**
 Compares the model's positive prediction rates across demographic groups. Flags any group receiving significantly fewer high-income predictions than the overall average.
@@ -32,18 +32,18 @@ Compares the model's positive prediction rates across demographic groups. Flags 
 ```
  AI BIAS DETECTOR
 =========================================================
-Generating census-style dataset...
+Loading real US Census data (UCI Adult Income Dataset)...
 
-  Records: 2,900
-  Source:  Based on UCI Adult Income Dataset demographic distributions
+  Records: 30,162
+  Source: UCI Adult Income Dataset (real US Census data)
 
 =========================================================
 STEP 1: Training income prediction model
 =========================================================
 
   Model:    Decision Tree Classifier (max_depth=6)
-  Accuracy: 89.9%
-  Test set: 870 records
+  Accuracy: 82.7%
+  Test set: 9,049 records
 
   NOTE: High accuracy can hide unfair treatment of groups.
   A bias audit looks beyond the headline number.
