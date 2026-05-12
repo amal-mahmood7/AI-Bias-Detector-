@@ -27,15 +27,16 @@ Compares the model's positive prediction rates across demographic groups. Flags 
 
 ---
 
-## Example Output
+## Real Output
 
 ```
  AI BIAS DETECTOR
 =========================================================
-Loading real US Census data (UCI Adult Income Dataset)...
+Loading real US Census data...
 
-  Records: 30,162
-  Source: UCI Adult Income Dataset (real US Census data)
+  Records:  30,162
+  Source:   UCI Adult Income Dataset (real US Census data)
+  Income >$50K: 7,508 (24.9%)
 
 =========================================================
 STEP 1: Training income prediction model
@@ -46,36 +47,45 @@ STEP 1: Training income prediction model
   Test set: 9,049 records
 
   NOTE: High accuracy can hide unfair treatment of groups.
-  A bias audit looks beyond the headline number.
+  This is why a bias audit is essential.
 
 =========================================================
 BIAS AUDIT: grouped by 'sex'
 =========================================================
 
-  Male                          62.8%  ███████████████████████████████  (n=516)
-  Female                        48.9%  ████████████████████████  (n=354)
+  Rate model predicts high income (>$50K):
 
-  OVERALL                       57.1%
+  Male                            17.2%  ████████  (n=6,138)
+  Female                           7.7%  ███  (n=2,911)
 
+  OVERALL                         14.1%
+
+  No significant bias flagged for 'sex'.
+
+=========================================================
 BIAS AUDIT: grouped by 'race'
 =========================================================
 
-  Asian-Pac-Islander            81.5%  ████████████████████████████████████████  (n=119)
-  White                         67.5%  █████████████████████████████████  (n=449)
-  Black                         38.6%  ███████████████████  (n=153)
-  Other                         31.9%  ███████████████  (n=72)
-  Amer-Indian-Eskimo            19.5%  █████████  (n=77)
+  Rate model predicts high income (>$50K):
 
-  OVERALL                       57.1%
+  White                           15.2%  ███████  (n=7,797)
+  Asian-Pac-Islander              10.4%  █████  (n=259)
+  Amer-Indian-Eskimo               9.2%  ████  (n=76)
+  Black                            6.7%  ███  (n=861)
+  Other                            3.6%  █  (n=56)
 
-BIAS FLAGS:
+  OVERALL                         14.1%
 
-  WARNING: 'Amer-Indian-Eskimo' — 37.6% below average
-  WARNING: 'Other'              — 25.2% below average
-  WARNING: 'Black'              — 18.6% below average
+  WARNING: 'Other'
+  Predicted high-income rate is 10.5% below average.
+  The model is significantly less likely to predict high
+  income for this group — a potential fairness concern.
+
+=========================================================
+Audit complete.
+A model can score well on accuracy while still being unfair.
+Responsible AI means auditing both.
 ```
-
-The model never uses race as a feature — yet it still produces racially disparate outcomes. This is because occupation and education data reflect historical inequalities, and the model learns those patterns.
 
 ---
 
