@@ -1,109 +1,81 @@
 """
 AI Bias Detector
 ----------------
-Trains a simple income prediction model on census-style data,
-then audits the model's predictions for demographic bias.
+Trains an income prediction model on real US Census data,
+then audits the model's predictions for demographic bias
+across sex and race.
 
-This mirrors real industry practice - companies like Google and IBM
-have dedicated teams that audit AI systems for unfair treatment
-of protected groups before and after deployment.
+This mirrors real industry practice used by AI ethics teams
+to check whether models treat different groups fairly.
 
-Inspired by: UCI Adult Income Dataset findings and the ProPublica
-COMPAS investigation into racial bias in criminal justice AI.
+Dataset: UCI Adult Income Dataset (real US Census data, 48,842 records)
+Source:  https://archive.ics.uci.edu/dataset/2/adult
+
+Inspired by: ProPublica COMPAS investigation and Amazon's hiring
+algorithm that was found to penalise women's CVs.
 
 Author: Amal Mahmood
 """
 
 import pandas as pd
-import random
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score
 
 
-def generate_data(n=3000, seed=42):
+def load_data(filepath="adult.data"):
     """
-    Generate census-style income data where demographic groups
-    have different feature distributions - reflecting real labour
-    market inequalities documented in US Census research.
-
-    The model learns from these features, and the audit then checks
-    whether its predictions treat groups differently.
+    Load the UCI Adult Income Dataset.
+    Real US Census data containing demographic and employment
+    information for 48,842 individuals.
     """
-    random.seed(seed)
-    rows = []
+    columns = [
+        "age", "workclass", "fnlwgt", "education", "education_num",
+        "marital_status", "occupation", "relationship", "race", "sex",
+        "capital_gain", "capital_loss", "hours_per_week",
+        "native_country", "income"
+    ]
 
-    group_configs = {
-        "White_Male":             {"n": 900, "edu_mean": 11, "hours_mean": 45, "mgmt_prob": 0.35},
-        "White_Female":           {"n": 600, "edu_mean": 10, "hours_mean": 38, "mgmt_prob": 0.15},
-        "Asian-Pac-Islander_Male":{"n": 200, "edu_mean": 12, "hours_mean": 46, "mgmt_prob": 0.30},
-        "Asian-Pac-Islander_Female":{"n":150,"edu_mean": 11, "hours_mean": 40, "mgmt_prob": 0.18},
-        "Black_Male":             {"n": 300, "edu_mean": 9,  "hours_mean": 40, "mgmt_prob": 0.10},
-        "Black_Female":           {"n": 250, "edu_mean": 9,  "hours_mean": 38, "mgmt_prob": 0.08},
-        "Amer-Indian-Eskimo_Male":{"n": 150, "edu_mean": 8,  "hours_mean": 40, "mgmt_prob": 0.08},
-        "Amer-Indian-Eskimo_Female":{"n":100,"edu_mean": 8,  "hours_mean": 36, "mgmt_prob": 0.05},
-        "Other_Male":             {"n": 150, "edu_mean": 9,  "hours_mean": 42, "mgmt_prob": 0.10},
-        "Other_Female":           {"n": 100, "edu_mean": 9,  "hours_mean": 38, "mgmt_prob": 0.08},
-    }
+    df = pd.read_csv(
+        filepath,
+        names=columns,
+        sep=", ",
+        engine="python",
+        na_values="?"
+    )
+    df.dropna(inplace=True)
+    df["income"] = df["income"].str.strip()
 
-    for key, cfg in group_configs.items():
-        race, sex = key.rsplit("_", 1)
-        for _ in range(cfg["n"]):
-            edu = max(5, min(16, int(random.gauss(cfg["edu_mean"], 2))))
-            hours = max(20, min(80, int(random.gauss(cfg["hours_mean"], 8))))
-            is_mgmt = random.random() < cfg["mgmt_prob"]
-            occupation = "Exec-managerial" if is_mgmt else random.choice([
-                "Prof-specialty", "Adm-clerical", "Sales",
-                "Other-service", "Craft-repair", "Transport-moving"
-            ])
-            capital_gain = random.choice([0] * 8 + [random.randint(2000, 15000)])
-            age = random.randint(22, 62)
-
-            # Income based purely on observable features
-            # (bias emerges because groups have different feature distributions)
-            score = (
-                (edu - 5) * 0.08 +
-                (hours - 20) * 0.006 +
-                (0.35 if occupation == "Exec-managerial" else 0) +
-                (0.15 if occupation == "Prof-specialty" else 0) +
-                capital_gain * 0.00002 +
-                random.gauss(0, 0.05)
-            )
-            income = ">50K" if score > 0.55 else "<=50K"
-
-            rows.append({
-                "age": age,
-                "education_num": edu,
-                "hours_per_week": hours,
-                "capital_gain": capital_gain,
-                "occupation": occupation,
-                "sex": sex,
-                "race": race,
-                "income": income
-            })
-
-    df = pd.DataFrame(rows)
-    random.shuffle(rows)
-    df = pd.DataFrame(rows)
-    print(f"  Records: {len(df):,}")
-    print(f"  Source:  Based on UCI Adult Income Dataset demographic distributions\n")
+    print(f"  Records:  {len(df):,}")
+    print(f"  Source:   UCI Adult Income Dataset (real US Census data)")
+    print(f"  Income >$50K: {(df['income'] == '>50K').sum():,} ({(df['income'] == '>50K').mean()*100:.1f}%)\n")
     return df
 
 
 def train_model(df):
-    """Train a Decision Tree classifier to predict income."""
+    """
+    Train a Decision Tree classifier to predict income.
+    The model uses education, occupation, age, hours and capital gains.
+    It never sees race or sex directly.
+    """
     print("=" * 57)
     print("STEP 1: Training income prediction model")
     print("=" * 57)
 
     audit_cols = df[["sex", "race"]].copy()
     df_model = df.copy()
-    le = LabelEncoder()
-    df_model["occupation"] = le.fit_transform(df_model["occupation"])
-    df_model["income"] = le.fit_transform(df_model["income"])
 
-    features = ["age", "education_num", "hours_per_week", "capital_gain", "occupation"]
+    le = LabelEncoder()
+    for col in ["workclass", "education", "marital_status",
+                "occupation", "relationship", "native_country", "income"]:
+        df_model[col] = le.fit_transform(df_model[col].astype(str))
+
+    features = [
+        "age", "education_num", "hours_per_week",
+        "capital_gain", "capital_loss", "occupation", "workclass"
+    ]
+
     X = df_model[features]
     y = df_model["income"]
 
@@ -120,13 +92,16 @@ def train_model(df):
     print(f"  Accuracy: {acc:.1f}%")
     print(f"  Test set: {len(X_test):,} records")
     print(f"\n  NOTE: High accuracy can hide unfair treatment of groups.")
-    print(f"  A bias audit looks beyond the headline number.\n")
+    print(f"  This is why a bias audit is essential.\n")
 
     return preds, y_test, aud_test
 
 
 def audit_bias(preds, y_test, audit_df, group_col):
-    """Audit model predictions for disparities across demographic groups."""
+    """
+    Compare the model's positive prediction rates across demographic groups.
+    Flags any group receiving significantly fewer high-income predictions.
+    """
     print("=" * 57)
     print(f"BIAS AUDIT: grouped by '{group_col}'")
     print("=" * 57)
@@ -144,11 +119,11 @@ def audit_bias(preds, y_test, audit_df, group_col):
 
     for group, info in sorted(group_rates.items(), key=lambda x: -x[1]["rate"]):
         bar = "█" * int(info["rate"] / 2)
-        print(f"  {group:<28} {info['rate']:5.1f}%  {bar}  (n={info['n']:,})")
+        print(f"  {group:<30} {info['rate']:5.1f}%  {bar}  (n={info['n']:,})")
 
-    print(f"\n  {'OVERALL':<28} {overall:5.1f}%\n")
+    print(f"\n  {'OVERALL':<30} {overall:5.1f}%\n")
     print("─" * 57)
-    print("  BIAS FLAGS (groups 10%+ below overall):\n")
+    print("  BIAS FLAGS (groups 10%+ below overall rate):\n")
 
     flagged = False
     for group, info in sorted(group_rates.items(), key=lambda x: x[1]["rate"]):
@@ -156,8 +131,8 @@ def audit_bias(preds, y_test, audit_df, group_col):
         if gap > 10:
             print(f"  WARNING: '{group}'")
             print(f"  Predicted high-income rate is {gap:.1f}% below average.")
-            print(f"  The model is significantly less likely to predict high income")
-            print(f"  for this group — a potential fairness concern.\n")
+            print(f"  The model is significantly less likely to predict high")
+            print(f"  income for this group — a potential fairness concern.\n")
             flagged = True
 
     if not flagged:
@@ -171,20 +146,22 @@ def recommendations():
     print("""
   1. INVESTIGATE ROOT CAUSE
      Features like occupation and education reflect historical
-     inequality. Using them can encode discrimination into the model
-     even without any explicit protected attributes being used.
+     inequality. Using them can encode discrimination into the
+     model even without race or sex being explicit inputs.
+     This is called proxy discrimination.
 
   2. APPLY FAIRNESS CONSTRAINTS
      Retrain with fairness-aware algorithms that penalise
      disparate outcomes across protected groups.
+     Tools like Microsoft Fairlearn can help with this.
 
   3. REBALANCE TRAINING DATA
-     Historical data reflects historical bias. Reweighting or
-     resampling can reduce inherited disparities.
+     Historical data reflects historical bias. Reweighting
+     or resampling can reduce inherited disparities.
 
   4. AUDIT CONTINUOUSLY
-     Bias can reappear when data or model changes. Build auditing
-     into the deployment pipeline, not just the build stage.
+     Bias can reappear when data or model changes. Build
+     auditing into the deployment pipeline, not just build.
 
   5. CONSULT AFFECTED COMMUNITIES
      No fairness metric replaces asking the people affected
@@ -197,9 +174,9 @@ def recommendations():
 if __name__ == "__main__":
     print("\n AI BIAS DETECTOR")
     print("=" * 57)
-    print("Generating census-style dataset...\n")
+    print("Loading real US Census data (UCI Adult Income Dataset)...\n")
 
-    df = generate_data(n=3000)
+    df = load_data("adult.data")
     preds, y_test, audit_df = train_model(df)
 
     audit_bias(preds, y_test, audit_df, group_col="sex")
